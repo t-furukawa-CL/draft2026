@@ -14,33 +14,67 @@
         <h1 class="text-xl font-bold text-gray-700" id="page-title">ドラフト入力パネル</h1>
         <div class="space-x-2">
             <a href="sheet.html" target="_blank" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">表示シートを開く</a>
-            <button onclick="clearTeamData()" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
+            <button onclick="clearTeamData()" id="reset-btn" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
         </div>
     </div>
 
     <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
 
     <script>
-        // 管理者パスワード認証
-        const ADMIN_PASSWORD = 'draft2026';
+        const ADMIN_PASSWORD_HASH = '6b2e2f8d1e8c5a1f3c6b8a9e0d1f4c5a';
+        
+        // SHA-256 ハッシュ関数
+        async function sha256(message) {
+            const msgUint8 = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
         
         function checkAdminAuth() {
             // sessionStorage でアクティブなセッションをチェック
             if (sessionStorage.getItem('adminAuth') !== 'verified') {
                 const password = prompt('このページは管理者のみアクセス可能です。\nパスワードを入力してください：');
-                if (password !== ADMIN_PASSWORD) {
-                    alert('パスワードが正しくありません');
-                    window.location.href = 'sheet.html'; // sheet.html にリダイレクト
+                if (password === null) {
+                    // キャンセルが押された場合
+                    window.location.href = 'sheet.html';
                     return false;
                 }
-                sessionStorage.setItem('adminAuth', 'verified');
+                
+                // 入力されたパスワードをハッシュ化して検証（非同期処理）
+                sha256(password).then(hash => {
+                    if (hash !== ADMIN_PASSWORD_HASH) {
+                        alert('パスワードが正しくありません');
+                        window.location.href = 'sheet.html';
+                    } else {
+                        sessionStorage.setItem('adminAuth', 'verified');
+                        // ページをリロード して以下のスクリプトを実行
+                        location.reload();
+                    }
+                });
+                return false;
             }
             return true;
         }
         
-        // ページロード時に認証確認
-        if (!checkAdminAuth()) {
-            // 認証失敗時はスクリプト実行を停止
+        // ページロード時に認証確認（同期的に実行）
+        if (sessionStorage.getItem('adminAuth') !== 'verified') {
+            // 非同期認証処理を開始
+            (async function() {
+                const password = prompt('このページは管理者のみアクセス可能です。\nパスワードを入力してください：');
+                if (password === null) {
+                    window.location.href = 'sheet.html';
+                    return;
+                }
+                const hash = await sha256(password);
+                if (hash !== ADMIN_PASSWORD_HASH) {
+                    alert('パスワードが正しくありません');
+                    window.location.href = 'sheet.html';
+                } else {
+                    sessionStorage.setItem('adminAuth', 'verified');
+                }
+            })();
             throw new Error('Admin authentication required');
         }
         
@@ -69,6 +103,8 @@
             const pageTitle = document.getElementById('page-title');
             if (allowedTeam) {
                 pageTitle.innerText = `TEAM ${allowedTeam} 編集パネル`;
+                // チーム毎編集時は全リセットボタンを非表示
+                document.getElementById('reset-btn').style.display = 'none';
             }
 
             for (let i = 1; i <= 5; i++) {
