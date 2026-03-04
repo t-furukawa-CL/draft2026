@@ -15,7 +15,7 @@
         
         /* 警告スタイル */
         .duplicate-alert { background-color: #fee2e2 !important; border: 2px solid #ef4444 !important; } /* 重複：薄赤背景+赤枠 */
-        .high-price-cell{ background-color: #d7abe0 !important; border: 2px solid #ef4444 !important; }  /* 1億超え：極薄赤背景 */
+        .winner-alert { border: 2px solid #ef4444 !important; } /* 当選セル：赤枠 */
         
         @media print {
             .no-print { display: none !important; }
@@ -33,6 +33,12 @@
             <thead><tr id="row-flag"><th class="header-column">代表国</th></tr></thead>
             <tbody id="table-body"></tbody>
         </table>
+    </div>
+
+    <div id="duplicate-section" class="mt-6 bg-white p-4 border-[4px] border-[#ef4444] rounded" style="display: none;">
+        <h2 class="text-lg font-bold text-red-600 mb-3">⚠️ 重複検出</h2>
+        <p class="text-sm mb-2">当選チームを下のリストから選んでください。選択すると他のチームの該当選手はクリアされ、再選択可能になります。</p>
+        <div id="duplicate-list" class="space-y-3"></div>
     </div>
 
     <script>
@@ -79,16 +85,29 @@
                 tableBody.insertAdjacentHTML('beforeend', rowHtml + `</tr>`);
             });
 
-            // 3. ドラフト巡目の描画
-            for (let r = 1; r <= 24; r++) {
-                let rowHtml = `<tr><th class="header-column bg-gray-100 italic">${r}巡目</th>`;
-                
-                // 重複チェック用のリスト作成
-                const namesInRound = [];
+            // 全巡目全チーム通しで選手の出現回数をカウントおよび位置を記録
+            const playerCount = {};
+            const playerLocations = {};
+            const winners = (state._winners || []).reduce((acc, w) => {
+                acc[`${w.team}_${w.round}`] = w.name;
+                return acc;
+            }, {});
+            for(let r=1; r<=24; r++) {
                 for(let i=1; i<=5; i++) {
                     const val = state[i]?.players?.[r];
-                    if(val) namesInRound.push(val.split('|')[0]);
+                    if(val) {
+                        const playerName = val.split('|')[0];
+                        playerCount[playerName] = (playerCount[playerName] || 0) + 1;
+                        if(!playerLocations[playerName]) playerLocations[playerName] = [];
+                        playerLocations[playerName].push({ team: i, round: r, price: val.split('|')[1] });
+                    }
                 }
+            }
+            // 自動抽選処理は削除。勝者はユーザーが後から選択する。
+
+            // 3. ドラフト巡目の描画
+            for (let r = 1; r <= 24; r++) {
+                let rowHtml = `<tr><th class="header-column bg_gray-100 italic">${r}巡目</th>`;
 
                 for (let i = 1; i <= 5; i++) {
                     const val = state[i]?.players?.[r];
@@ -106,18 +125,35 @@
                         const priceNum = parseInt(p.replace(/,/g, ''));
                         const isHighPrice = priceNum >= 10000;
                         
-                        // 重複チェック
-                        const isDuplicate = namesInRound.filter(name => name === n).length > 1;
-
-                        // セルの背景色クラス決定
-                        if (isDuplicate) extraClass = 'duplicate-alert';
-                        else if (isHighPrice) extraClass = 'high-price-cell';
+                        // 重複チェック：同じ選手が複数回指名されている場合
+                        const isDuplicate = playerCount[n] > 1;
+                        let isLoser = false;
+                        let isWinner = false;
+                        if (isDuplicate) {
+                            // initially mark duplicate background
+                            extraClass = 'duplicate-alert';
+                            // 当選者判定は winners マップで
+                            if (winners[`${i}_${r}`] === n) {
+                                isWinner = true;
+                            } else {
+                                // winner not this; it's loser
+                                isLoser = true;
+                            }
+                        } else {
+                            // 重複なければ、過去に勝っている場合も赤枠
+                            if (winners[`${i}_${r}`] === n) {
+                                isWinner = true;
+                            }
+                        }
+                        if (isWinner) {
+                            extraClass += ' winner-alert';
+                        }
 
                         cellContent = `
-                            <div class="player-cell">
+                            <div class="player-cell ${isLoser ? 'opacity-70' : ''}">
                                 <div class="flex flex-col items-start leading-tight">
                                     <span class="text-[8px] font-bold" style="color: ${isLight ? '#ccac00' : color}">${team}</span>
-                                    <span class="font-bold">${n}</span>
+                                    <span class="font-bold">${n}${isLoser ? ' (指名重複)' : ''}</span>
                                 </div>
                                 <span class="price-text font-bold ${isHighPrice ? 'text-red-700' : ''}">${p}</span>
                             </div>`;
@@ -125,6 +161,72 @@
                     rowHtml += `<td class="${extraClass}">${cellContent}</td>`;
                 }
                 tableBody.insertAdjacentHTML('beforeend', rowHtml + `</tr>`);
+            }
+
+            // 追加：外れ記録を履歴として描画（巡目ごとに1行）
+            const losers = state._losers || [];
+            const uniqueLosers = [];
+            const seenLosers = new Set();
+            losers.forEach(entry => {
+                const key = `${entry.team}_${entry.round}`;
+                if (!seenLosers.has(key)) {
+                    seenLosers.add(key);
+                    uniqueLosers.push(entry);
+                }
+            });
+            
+            // 巡目ごとにグループ化
+            const losersByRound = {};
+            uniqueLosers.forEach(entry => {
+                if (!losersByRound[entry.round]) losersByRound[entry.round] = [];
+                losersByRound[entry.round].push(entry);
+            });
+            
+            // 各巡目ごとに1行作成
+            Object.keys(losersByRound).sort((a, b) => a - b).forEach(round => {
+                const entries = losersByRound[round];
+                let rowHtml = `<tr><th class="header-column bg-gray-200 italic">${round}巡目 獲得失敗</th>`;
+                for (let i = 1; i <= 5; i++) {
+                    const entry = entries.find(e => e.team === i);
+                    if (entry) {
+                        rowHtml += `<td class="bg-gray-100"><div class="player-cell"><span class="font-bold">${entry.name}</span><span class="price-text">${entry.price}</span></div></td>`;
+                    } else {
+                        rowHtml += `<td></td>`;
+                    }
+                }
+                tableBody.insertAdjacentHTML('beforeend', rowHtml + `</tr>`);
+            });
+
+            // 4. 重複検出セクションの描画
+            const duplicatePlayers = Object.keys(playerCount).filter(name => playerCount[name] > 1);
+            const duplicateSection = document.getElementById('duplicate-section');
+            const duplicateList = document.getElementById('duplicate-list');
+
+            if (duplicatePlayers.length > 0) {
+                duplicateList.innerHTML = '';
+                duplicatePlayers.forEach(playerName => {
+                    const locations = playerLocations[playerName];
+                    let dupHtml = `<div class="border-l-4 border-red-600 pl-3 py-2 bg-red-50">
+                        <div class="font-bold text-red-700">${playerName}</div>
+                        <div class="text-sm text-gray-700 mt-1">
+                            指名位置：
+                            <ul class="list-disc list-inside mt-1">`;
+                    
+                    locations.forEach(loc => {
+                        const teamName = state[loc.team]?.teamName || `TEAM ${loc.team}`;
+                        dupHtml += `<li>${teamName} - ${loc.round}巡目 (${loc.price}万)`;
+                        if (locations.length > 1) {
+                            dupHtml += ` <button class="text-blue-600 underline" onclick="chooseWinner('${playerName}',${loc.team},${loc.round})">当選</button>`;
+                        }
+                        dupHtml += `</li>`;
+                    });
+                    
+                    dupHtml += `</ul></div></div>`;
+                    duplicateList.insertAdjacentHTML('beforeend', dupHtml);
+                });
+                duplicateSection.style.display = 'block';
+            } else {
+                duplicateSection.style.display = 'none';
             }
         }
 
@@ -141,6 +243,47 @@
                     renderTable();
                 }
             } catch (e) { console.error("同期失敗", e); }
+        }
+
+        // ユーザーが重複選手の当選チームを手動で決める
+        function chooseWinner(playerName, winnerTeam, winnerRound) {
+            const saved = localStorage.getItem('draftApp_full_save');
+            if (!saved) return;
+            const state = JSON.parse(saved);
+            if (!state._losers) state._losers = [];
+            if (!state._winners) state._winners = [];
+            // 記録：勝者も保持
+            const existsWinner = state._winners.some(w => w.name === playerName && w.team === winnerTeam && w.round === winnerRound);
+            if (!existsWinner) {
+                state._winners.push({ name: playerName, team: winnerTeam, round: winnerRound });
+            }
+            // その選手を選んでいる全チームを探し、当選以外を記録してクリア
+            for (let r = 1; r <= 24; r++) {
+                for (let t = 1; t <= 5; t++) {
+                    const val = state[t]?.players?.[r];
+                    if (val && val.split('|')[0] === playerName) {
+                        if (!(t === winnerTeam && r === winnerRound)) {
+                            // 記録
+                            const exists = state._losers.some(l => l.name === playerName && l.team === t && l.round === r);
+                            if (!exists) {
+                                state._losers.push({
+                                    name: playerName,
+                                    team: t,
+                                    round: r,
+                                    price: val.split('|')[1]
+                                });
+                            }
+                            // 外れ選手をクリア
+                            if (state[t].players) state[t].players[r] = "";
+                        }
+                    }
+                }
+            }
+            // 保存と同期
+            localStorage.setItem('draftApp_full_save', JSON.stringify(state));
+            fetch(GAS_URL, { method: "POST", body: JSON.stringify(state), mode: "no-cors" });
+            renderTable();
+            alert(`${playerName} の当選チームを TEAM ${winnerTeam} ${winnerRound}巡目に設定しました。外れチームは履歴に記録されました。`);
         }
         // 3秒ごとにサーバと同期
         setInterval(syncWithServer, 3000);
