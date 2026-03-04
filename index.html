@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ドラフト2026 - 入力パネル</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="players.js"></script>
+    <style>
+        .edit-panel { max-height: 800px; overflow-y: auto; scrollbar-width: thin; }
+    </style>
+</head>
+<body class="p-4 bg-gray-100 font-sans">
+    <div class="flex justify-between items-center mb-4 border-b pb-2">
+        <h1 class="text-xl font-bold text-gray-700">ドラフト入力パネル</h1>
+        <div class="space-x-2">
+            <a href="sheet.html" target="_blank" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">表示シートを開く</a>
+            <button onclick="clearAllData()" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
+        </div>
+    </div>
+
+    <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
+        const owners = ['蛯澤', '小菅', '濱野', '古川', '安川'];
+        const countries = [{ name: '日本', flag: '🇯🇵' }, { name: '台湾', flag: '🇹🇼' }, { name: '豪州', flag: '🇦🇺' }, { name: '韓国', flag: '🇰🇷' }, { name: 'チェコ', flag: '🇨🇿' }];
+        const infoFields = [
+            { id: 'teamName', label: 'チーム名' },
+            { id: 'owner', label: 'オーナー', type: 'select', options: owners },
+            { id: 'manager', label: '監督' },
+            { id: 'p-coach', label: '投手コーチ' },
+            { id: '1b-coach', label: '1塁コーチ' },
+            { id: '3b-coach', label: '3塁コーチ' }
+        ];
+
+        function initLayout() {
+            const formContainer = document.getElementById('form-container');
+            const teamList = [...new Set(allPlayers.map(p => p.c))];
+
+            for (let i = 1; i <= 5; i++) {
+                let fieldsHtml = infoFields.map(f => {
+                    if (f.type === 'select') {
+                        return `<label class="block text-gray-400 mt-1">${f.label}</label>
+                                <select id="in-${f.id}-${i}" onchange="saveAll()" class="w-full border rounded p-1 bg-white">
+                                    ${f.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                                </select>`;
+                    }
+                    return `<label class="block text-gray-400 mt-1">${f.label}</label>
+                            <input type="text" id="in-${f.id}-${i}" oninput="saveAll()" class="w-full border rounded p-1" placeholder="${f.label}">`;
+                }).join('');
+
+                formContainer.insertAdjacentHTML('beforeend', `
+                    <div class="bg-white p-3 rounded shadow border border-gray-200 text-xs">
+                        <h3 class="font-bold mb-2 text-blue-800 border-b italic">TEAM ${i}</h3>
+                        <div class="edit-panel space-y-1">
+                            <label class="block text-gray-400 font-bold">国</label>
+                            <select id="in-country-${i}" onchange="saveAll()" class="w-full border rounded p-1">
+                                ${countries.map(c => `<option value="${c.flag}">${c.flag} ${c.name}</option>`).join('')}
+                            </select>
+                            ${fieldsHtml}
+                            <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                                <span class="text-gray-500 font-bold">総年俸: </span>
+                                <span id="total-price-${i}" class="text-blue-700 font-bold text-sm">0</span> <span class="text-[8px]">万</span>
+                            </div>
+                            <label class="block text-gray-400 font-bold mt-4 border-t pt-2 italic">DRAFT SELECT</label>
+                            <div id="player-selects-${i}" class="space-y-1"></div>
+                        </div>
+                    </div>`);
+                
+                const selectContainer = document.getElementById(`player-selects-${i}`);
+                for(let r=1; r<=24; r++) {
+                    selectContainer.insertAdjacentHTML('beforeend', `
+                        <div class="flex items-center gap-1">
+                            <span class="text-[9px] w-4 text-gray-400">${r}</span>
+                            <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-14 border rounded p-0.5 text-[9px] bg-blue-50">
+                                <option value="">球団</option>
+                                ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
+                            </select>
+                            <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-full border rounded p-0.5 text-[10px]">
+                                <option value="">---</option>
+                            </select>
+                        </div>`);
+                }
+            }
+        }
+
+        function updatePlayerOptions(r, i, savedValue = null) {
+            const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
+            const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+            const selectedClub = clubEl.value;
+            let optionsHtml = '<option value="">---</option>';
+            if (selectedClub) {
+                const filtered = allPlayers.filter(p => p.c === selectedClub);
+                optionsHtml += filtered.map(p => `<option value="${p.n}|${p.p}">${p.n} (${p.p})</option>`).join('');
+            }
+            playerEl.innerHTML = optionsHtml;
+            if (savedValue) playerEl.value = savedValue;
+            saveAll();
+        }
+
+        async function saveAll() {
+            const state = {};
+            for (let i = 1; i <= 5; i++) {
+                let teamTotal = 0;
+                state[i] = { country: document.getElementById(`in-country-${i}`).value, players: {}, clubs: {} };
+                infoFields.forEach(f => { state[i][f.id] = document.getElementById(`in-${f.id}-${i}`).value; });
+
+                for(let r=1; r<=24; r++) {
+                    const clubVal = document.getElementById(`in-round-${r}-team-${i}-club`).value;
+                    const val = document.getElementById(`in-round-${r}-team-${i}`).value;
+                    state[i].clubs[r] = clubVal;
+                    state[i].players[r] = val;
+                    if(val) {
+                        const price = parseInt(val.split('|')[1].replace(/,/g, ''));
+                        teamTotal += price;
+                    }
+                }
+                document.getElementById(`total-price-${i}`).innerText = teamTotal.toLocaleString();
+                state[i].totalPrice = teamTotal;
+            }
+
+            // ローカル保存
+            localStorage.setItem('draftApp_full_save', JSON.stringify(state));
+
+            // GAS経由でスプレッドシートへ保存
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify(state),
+                mode: "no-cors" // GASの仕様上、レスポンスを受け取らない設定が安定します
+            });
+        }
+
+
+        async function loadSavedData() {
+            try {
+                const res = await fetch(GAS_URL);
+                const state = await res.json();
+                if (state && state[1]) {
+                    for (let i = 1; i <= 5; i++) {
+                        document.getElementById(`in-country-${i}`).value = state[i].country;
+                        infoFields.forEach(f => {
+                            const el = document.getElementById(`in-${f.id}-${i}`);
+                            if (el) el.value = state[i][f.id] || '';
+                        });
+                        for(let r=1; r<=24; r++) {
+                            const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
+                            clubEl.value = state[i].clubs[r] || "";
+                            updatePlayerOptions(r, i, state[i].players[r]);
+                        }
+                    }
+                }
+            } catch (e) { console.log("サーバーデータなし、ローカルを使用します"); }
+        }
+
+        function clearAllData() { if (confirm("全データをリセットしますか？")) { localStorage.clear(); location.reload(); } }
+
+        initLayout();
+        loadSavedData();
+    </script>
+</body>
+</html>

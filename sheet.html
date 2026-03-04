@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Draft 2026 - 指名リスト</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="players.js"></script>
+    
+    <style>
+        .draft-table th, .draft-table td { border: 1px solid black; padding: 2px 4px; text-align: center; font-size: 11px; height: 32px; }
+        .header-column { background-color: #f3f4f6; font-weight: bold; width: 100px; }
+        .flag-icon { font-size: 20px; line-height: 1; }
+        .player-cell { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; }
+        .price-text { color: #666; font-size: 9px; margin-left: auto; }
+        
+        /* 警告スタイル */
+        .duplicate-alert { background-color: #fee2e2 !important; border: 2px solid #ef4444 !important; } /* 重複：薄赤背景+赤枠 */
+        .high-price-cell{ background-color: #d7abe0 !important; border: 2px solid #ef4444 !important; }  /* 1億超え：極薄赤背景 */
+        
+        @media print {
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="p-4 bg-gray-50 flex flex-col items-center">
+
+    <div class="no-print mb-6 flex gap-4">
+        <button onclick="window.print()" class="bg-blue-600 text-white px-8 py-2 rounded-full font-bold shadow-lg hover:bg-blue-700 transition flex items-center gap-2 no-print">
+            <span>🖨️</span> PDFとして保存（ブラウザ印刷）
+        </button>
+        <button onclick="window.close()" class="bg-gray-200 text-gray-600 px-4 py-2 rounded-full text-sm">
+            閉じる
+        </button>
+    </div>
+
+    <div id="capture-area" class="overflow-x-auto bg-white p-2 border-[6px] border-[#000080] inline-block shadow-xl">
+        <div style="background-color: #01302A;" class="text-white text-center text-2xl font-bold py-2 mb-2 italic">DRAFT 2026</div>
+        <table class="draft-table border-collapse" style="width: 950px;">
+            <thead><tr id="row-flag"><th class="header-column">代表国</th></tr></thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
+        const infoFields = [
+            { id: 'teamName', label: 'チーム名' },
+            { id: 'owner', label: 'オーナー' },
+            { id: 'manager', label: '監督' },
+            { id: 'p-coach', label: '投手コーチ' },
+            { id: '1b-coach', label: '1塁コーチ' },
+            { id: '3b-coach', label: '3塁コーチ' },
+            { id: 'totalPrice', label: '総年俸' }
+        ];
+
+        const teamColors = {
+            '読売': '#f97709', '阪神': '#f3e100', '広島東洋': '#ff0000', '横浜DeNA': '#005596', 
+            '東京ヤクルト': '#00467e', '中日': '#0035ad', '福岡ソフトバンク': '#f5c700', 
+            '北海道日本ハム': '#4cbbad', '千葉ロッテ': '#221815', 'オリックス': '#b3a25d', 
+            '東北楽天': '#870011', '埼玉西武': '#1a3e7d'
+        };
+
+        function renderTable() {
+            const rowFlag = document.getElementById('row-flag');
+            const tableBody = document.getElementById('table-body');
+            const saved = localStorage.getItem('draftApp_full_save');
+            const state = saved ? JSON.parse(saved) : {};
+
+            rowFlag.innerHTML = '<th class="header-column">代表国</th>';
+            tableBody.innerHTML = '';
+
+            // 1. ヘッダー（国旗）の描画
+            for(let i=1; i<=5; i++) {
+                rowFlag.insertAdjacentHTML('beforeend', `<td class="flag-icon w-[170px]">${state[i]?.country || ''}</td>`);
+            }
+
+            // 2. 基本情報（チーム名〜総年俸）の描画
+            infoFields.forEach(f => {
+                let rowHtml = `<tr><th class="header-column">${f.label}</th>`;
+                for (let i = 1; i <= 5; i++) {
+                    let val = state[i]?.[f.id] || '---';
+                    if(f.id === 'totalPrice') val = (val || 0).toLocaleString() + ' 万';
+                    rowHtml += `<td class="${f.id==='teamName'?'font-bold bg-gray-50':''}">${val}</td>`;
+                }
+                tableBody.insertAdjacentHTML('beforeend', rowHtml + `</tr>`);
+            });
+
+            // 3. ドラフト巡目の描画
+            for (let r = 1; r <= 24; r++) {
+                let rowHtml = `<tr><th class="header-column bg-gray-100 italic">${r}巡目</th>`;
+                
+                // 重複チェック用のリスト作成
+                const namesInRound = [];
+                for(let i=1; i<=5; i++) {
+                    const val = state[i]?.players?.[r];
+                    if(val) namesInRound.push(val.split('|')[0]);
+                }
+
+                for (let i = 1; i <= 5; i++) {
+                    const val = state[i]?.players?.[r];
+                    let cellContent = '';
+                    let extraClass = '';
+
+                    if (val) {
+                        const [n, p] = val.split('|');
+                        const pInfo = allPlayers.find(ap => ap.n === n);
+                        const team = pInfo ? pInfo.c : '';
+                        const color = teamColors[team] || '#666';
+                        const isLight = ['阪神', '福岡ソフトバンク'].includes(team);
+                        
+                        // 年俸チェック（10万＝1億）
+                        const priceNum = parseInt(p.replace(/,/g, ''));
+                        const isHighPrice = priceNum >= 10000;
+                        
+                        // 重複チェック
+                        const isDuplicate = namesInRound.filter(name => name === n).length > 1;
+
+                        // セルの背景色クラス決定
+                        if (isDuplicate) extraClass = 'duplicate-alert';
+                        else if (isHighPrice) extraClass = 'high-price-cell';
+
+                        cellContent = `
+                            <div class="player-cell">
+                                <div class="flex flex-col items-start leading-tight">
+                                    <span class="text-[8px] font-bold" style="color: ${isLight ? '#ccac00' : color}">${team}</span>
+                                    <span class="font-bold">${n}</span>
+                                </div>
+                                <span class="price-text font-bold ${isHighPrice ? 'text-red-700' : ''}">${p}</span>
+                            </div>`;
+                    }
+                    rowHtml += `<td class="${extraClass}">${cellContent}</td>`;
+                }
+                tableBody.insertAdjacentHTML('beforeend', rowHtml + `</tr>`);
+            }
+        }
+
+        // PDF出力ロジック
+        async function downloadPDF() {
+            const element = document.getElementById('capture-area');
+            const btn = event.currentTarget;
+            
+            btn.disabled = true;
+            btn.innerText = "PDF作成中...";
+
+            // 描画の完了を確実にするため少し待機
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const opt = {
+                margin: [10, 5],
+                filename: 'draft_2026_sheet.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2,           // 画質を2倍に設定
+                    useCORS: true,      // 外部リソース許可
+                    logging: false,     // ログ出力オフ
+                    scrollY: -window.scrollY, // スクロール位置のズレを補正
+                    backgroundColor: '#ffffff' // 背景色を白で固定
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            try {
+                // html2pdfのワーカーを使用して確実に生成
+                await html2pdf().from(element).set(opt).save();
+            } catch (error) {
+                console.error("PDF生成失敗:", error);
+                alert("PDFの生成に失敗しました。ブラウザの印刷機能（Ctrl+P / Cmd+P）からPDF保存を試してください。");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>📥</span> PDFとしてダウンロード";
+            }
+        }
+
+        async function fetchLatestData() {
+            try {
+                const response = await fetch(GAS_URL);
+                const state = await response.json();
+                localStorage.setItem('draftApp_full_save', JSON.stringify(state));
+                renderTable(); // テーブル再描画
+            } catch (e) { console.error("同期エラー", e); }
+        }
+        setInterval(fetchLatestData, 5000);
+
+
+        async function syncWithServer() {
+            try {
+                const res = await fetch(GAS_URL);
+                const state = await res.json();
+                if (state && Object.keys(state).length > 0) {
+                    localStorage.setItem('draftApp_full_save', JSON.stringify(state));
+                    renderTable(); //
+                }
+            } catch (e) { console.error("同期失敗", e); }
+        }
+        setInterval(syncWithServer, 3000);
+        window.addEventListener('load', syncWithServer);
+
+        // リアルタイム同期設定
+        window.addEventListener('storage', renderTable);
+        renderTable();
+        setInterval(renderTable, 1000); // 1秒ごとに最新化
+    </script>
+</body>
+</html>
