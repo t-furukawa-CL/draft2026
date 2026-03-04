@@ -84,7 +84,8 @@
             }
         }
 
-        function updatePlayerOptions(r, i, savedValue = null) {
+        // suppressSave: true にすると内部で saveAll を呼ばない（ロード時に使用）
+        function updatePlayerOptions(r, i, savedValue = null, suppressSave = false) {
             const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
             const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
             const selectedClub = clubEl.value;
@@ -95,7 +96,7 @@
             }
             playerEl.innerHTML = optionsHtml;
             if (savedValue) playerEl.value = savedValue;
-            saveAll();
+            if (!suppressSave) saveAll();
         }
 
         async function saveAll() {
@@ -145,7 +146,8 @@
                         for(let r=1; r<=24; r++) {
                             const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
                             clubEl.value = state[i].clubs[r] || "";
-                            updatePlayerOptions(r, i, state[i].players[r]);
+                            // ロード時は saveAll を呼ばない
+                            updatePlayerOptions(r, i, state[i].players[r], true);
                         }
                     }
                 }

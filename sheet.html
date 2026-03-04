@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Draft 2026 - 指名リスト</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="players.js"></script>
     
     <style>
@@ -135,71 +134,24 @@
             }
         }
 
-        // PDF出力ロジック
-        async function downloadPDF() {
-            const element = document.getElementById('capture-area');
-            const btn = event.currentTarget;
-            
-            btn.disabled = true;
-            btn.innerText = "PDF作成中...";
-
-            // 描画の完了を確実にするため少し待機
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            const opt = {
-                margin: [10, 5],
-                filename: 'draft_2026_sheet.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2,           // 画質を2倍に設定
-                    useCORS: true,      // 外部リソース許可
-                    logging: false,     // ログ出力オフ
-                    scrollY: -window.scrollY, // スクロール位置のズレを補正
-                    backgroundColor: '#ffffff' // 背景色を白で固定
-                },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-            };
-
-            try {
-                // html2pdfのワーカーを使用して確実に生成
-                await html2pdf().from(element).set(opt).save();
-            } catch (error) {
-                console.error("PDF生成失敗:", error);
-                alert("PDFの生成に失敗しました。ブラウザの印刷機能（Ctrl+P / Cmd+P）からPDF保存を試してください。");
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = "<span>📥</span> PDFとしてダウンロード";
-            }
-        }
-
-        async function fetchLatestData() {
-            try {
-                const response = await fetch(GAS_URL);
-                const state = await response.json();
-                localStorage.setItem('draftApp_full_save', JSON.stringify(state));
-                renderTable(); // テーブル再描画
-            } catch (e) { console.error("同期エラー", e); }
-        }
-        setInterval(fetchLatestData, 10000);
-
-
+        // サーバ同期（単一）
         async function syncWithServer() {
             try {
                 const res = await fetch(GAS_URL);
                 const state = await res.json();
                 if (state && Object.keys(state).length > 0) {
                     localStorage.setItem('draftApp_full_save', JSON.stringify(state));
-                    renderTable(); //
+                    renderTable();
                 }
             } catch (e) { console.error("同期失敗", e); }
         }
+        // 10秒ごとにサーバと同期
         setInterval(syncWithServer, 10000);
         window.addEventListener('load', syncWithServer);
 
-        // リアルタイム同期設定
+        // リアルタイム同期設定（storageイベントと初回描画のみ）
         window.addEventListener('storage', renderTable);
         renderTable();
-        setInterval(renderTable, 1000); // 1秒ごとに最新化
     </script>
 </body>
 </html>
