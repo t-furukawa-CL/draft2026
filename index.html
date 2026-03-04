@@ -200,6 +200,8 @@
                             updatePlayerOptions(r, i, state[i]?.players?.[r], true);
                         }
                     }
+                    // 読み込み後に合計再計算
+                    saveAll();
                 }
             } catch (e) { console.log("サーバーデータなし、ローカルを使用します"); }
         }
