@@ -93,7 +93,9 @@
                     </div>`);
                 
                 const selectContainer = document.getElementById(`player-selects-${i}`);
-                for(let r=1; r<=24; r++) {
+                // 16順目以降は先に表示するため、ラウンド順をカスタム配列で回す
+                const roundOrder = [...Array(9).keys()].map(x => x+16).concat([...Array(15).keys()].map(x => x+1));
+                roundOrder.forEach(r => {
                     selectContainer.insertAdjacentHTML('beforeend', `
                         <div class="flex items-center gap-1">
                             <span class="text-[9px] w-4 text-gray-400">${r}</span>
@@ -105,7 +107,7 @@
                                 <option value="">---</option>
                             </select>
                         </div>`);
-                }
+                });
             }
         }
 
