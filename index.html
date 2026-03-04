@@ -21,63 +21,6 @@
     <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
 
     <script>
-        const ADMIN_PASSWORD_HASH = '6b2e2f8d1e8c5a1f3c6b8a9e0d1f4c5a';
-        
-        // SHA-256 ハッシュ関数
-        async function sha256(message) {
-            const msgUint8 = new TextEncoder().encode(message);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return hashHex;
-        }
-        
-        function checkAdminAuth() {
-            // sessionStorage でアクティブなセッションをチェック
-            if (sessionStorage.getItem('adminAuth') !== 'verified') {
-                const password = prompt('このページは管理者のみアクセス可能です。\nパスワードを入力してください：');
-                if (password === null) {
-                    // キャンセルが押された場合
-                    window.location.href = 'sheet.html';
-                    return false;
-                }
-                
-                // 入力されたパスワードをハッシュ化して検証（非同期処理）
-                sha256(password).then(hash => {
-                    if (hash !== ADMIN_PASSWORD_HASH) {
-                        alert('パスワードが正しくありません');
-                        window.location.href = 'sheet.html';
-                    } else {
-                        sessionStorage.setItem('adminAuth', 'verified');
-                        // ページをリロード して以下のスクリプトを実行
-                        location.reload();
-                    }
-                });
-                return false;
-            }
-            return true;
-        }
-        
-        // ページロード時に認証確認（同期的に実行）
-        if (sessionStorage.getItem('adminAuth') !== 'verified') {
-            // 非同期認証処理を開始
-            (async function() {
-                const password = prompt('このページは管理者のみアクセス可能です。\nパスワードを入力してください：');
-                if (password === null) {
-                    window.location.href = 'sheet.html';
-                    return;
-                }
-                const hash = await sha256(password);
-                if (hash !== ADMIN_PASSWORD_HASH) {
-                    alert('パスワードが正しくありません');
-                    window.location.href = 'sheet.html';
-                } else {
-                    sessionStorage.setItem('adminAuth', 'verified');
-                }
-            })();
-            throw new Error('Admin authentication required');
-        }
-        
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
         const owners = ['蛯澤', '小菅', '濱野', '古川', '安川'];
         const countries = [{ name: '日本', flag: '🇯🇵' }, { name: '台湾', flag: '🇹🇼' }, { name: '豪州', flag: '🇦🇺' }, { name: '韓国', flag: '🇰🇷' }, { name: 'チェコ', flag: '🇨🇿' }];
