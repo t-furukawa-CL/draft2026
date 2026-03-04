@@ -11,10 +11,10 @@
 </head>
 <body class="p-4 bg-gray-100 font-sans">
     <div class="flex justify-between items-center mb-4 border-b pb-2">
-        <h1 class="text-xl font-bold text-gray-700">ドラフト入力パネル</h1>
+        <h1 class="text-xl font-bold text-gray-700" id="page-title">ドラフト入力パネル</h1>
         <div class="space-x-2">
             <a href="sheet.html" target="_blank" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">表示シートを開く</a>
-            <button onclick="clearAllData()" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
+            <button onclick="clearTeamData()" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
         </div>
     </div>
 
@@ -24,6 +24,11 @@
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
         const owners = ['蛯澤', '小菅', '濱野', '古川', '安川'];
         const countries = [{ name: '日本', flag: '🇯🇵' }, { name: '台湾', flag: '🇹🇼' }, { name: '豪州', flag: '🇦🇺' }, { name: '韓国', flag: '🇰🇷' }, { name: 'チェコ', flag: '🇨🇿' }];
+        
+        // URLパラメータからアクセス許可チームを取得
+        const params = new URLSearchParams(window.location.search);
+        const allowedTeam = params.get('team');
+        
         const infoFields = [
             { id: 'teamName', label: 'チーム名' },
             { id: 'owner', label: 'オーナー', type: 'select', options: owners },
@@ -36,8 +41,19 @@
         function initLayout() {
             const formContainer = document.getElementById('form-container');
             const teamList = [...new Set(allPlayers.map(p => p.c))];
+            
+            // ページタイトルを更新
+            const pageTitle = document.getElementById('page-title');
+            if (allowedTeam) {
+                pageTitle.innerText = `TEAM ${allowedTeam} 編集パネル`;
+            }
 
             for (let i = 1; i <= 5; i++) {
+                // allowedTeam が指定されていて、現在のチーム番号と異なる場合はスキップ
+                if (allowedTeam && parseInt(allowedTeam) !== i) {
+                    continue;
+                }
+                
                 let fieldsHtml = infoFields.map(f => {
                     if (f.type === 'select') {
                         return `<label class="block text-gray-400 mt-1">${f.label}</label>
@@ -154,7 +170,24 @@
             } catch (e) { console.log("サーバーデータなし、ローカルを使用します"); }
         }
 
-        function clearAllData() { if (confirm("全データをリセットしますか？")) { localStorage.clear(); location.reload(); } }
+        function clearTeamData() {
+            if (allowedTeam) {
+                if (confirm(`TEAM ${allowedTeam} のデータをリセットしますか？`)) {
+                    const saved = localStorage.getItem('draftApp_full_save');
+                    if (saved) {
+                        const state = JSON.parse(saved);
+                        delete state[allowedTeam];
+                        localStorage.setItem('draftApp_full_save', JSON.stringify(state));
+                    }
+                    location.reload();
+                }
+            } else {
+                if (confirm("全データをリセットしますか？")) {
+                    localStorage.clear();
+                    location.reload();
+                }
+            }
+        }
 
         initLayout();
         loadSavedData();
