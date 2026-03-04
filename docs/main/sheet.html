@@ -131,7 +131,10 @@
         // サーバ同期（単一）
         async function syncWithServer() {
             try {
-                const res = await fetch(GAS_URL);
+                const res = await fetch(GAS_URL + '?t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
                 const state = await res.json();
                 if (state && Object.keys(state).length > 0) {
                     localStorage.setItem('draftApp_full_save', JSON.stringify(state));
@@ -139,8 +142,8 @@
                 }
             } catch (e) { console.error("同期失敗", e); }
         }
-        // 10秒ごとにサーバと同期
-        setInterval(syncWithServer, 10000);
+        // 3秒ごとにサーバと同期
+        setInterval(syncWithServer, 3000);
         window.addEventListener('load', syncWithServer);
 
         // リアルタイム同期設定（storageイベントと初回描画のみ）
