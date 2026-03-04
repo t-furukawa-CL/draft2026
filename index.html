@@ -116,15 +116,32 @@
         }
 
         async function saveAll() {
-            const state = {};
-            for (let i = 1; i <= 5; i++) {
+            // ローカルストレージから既存データを取得
+            const saved = localStorage.getItem('draftApp_full_save');
+            const state = saved ? JSON.parse(saved) : {};
+            
+            // allowedTeam が指定されている場合は、そのチームのみを更新
+            const teamsToUpdate = allowedTeam ? [parseInt(allowedTeam)] : [1, 2, 3, 4, 5];
+            
+            for (let i of teamsToUpdate) {
+                // フォーム要素が存在しない場合はスキップ（別のページから編集されている可能性）
+                const countryEl = document.getElementById(`in-country-${i}`);
+                if (!countryEl) continue;
+                
                 let teamTotal = 0;
-                state[i] = { country: document.getElementById(`in-country-${i}`).value, players: {}, clubs: {} };
-                infoFields.forEach(f => { state[i][f.id] = document.getElementById(`in-${f.id}-${i}`).value; });
+                state[i] = { country: countryEl.value, players: {}, clubs: {} };
+                infoFields.forEach(f => { 
+                    const el = document.getElementById(`in-${f.id}-${i}`);
+                    if (el) state[i][f.id] = el.value;
+                });
 
                 for(let r=1; r<=24; r++) {
-                    const clubVal = document.getElementById(`in-round-${r}-team-${i}-club`).value;
-                    const val = document.getElementById(`in-round-${r}-team-${i}`).value;
+                    const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
+                    const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+                    if (!clubEl || !playerEl) continue;
+                    
+                    const clubVal = clubEl.value;
+                    const val = playerEl.value;
                     state[i].clubs[r] = clubVal;
                     state[i].players[r] = val;
                     if(val) {
@@ -132,7 +149,8 @@
                         teamTotal += price;
                     }
                 }
-                document.getElementById(`total-price-${i}`).innerText = teamTotal.toLocaleString();
+                const totalPriceEl = document.getElementById(`total-price-${i}`);
+                if (totalPriceEl) totalPriceEl.innerText = teamTotal.toLocaleString();
                 state[i].totalPrice = teamTotal;
             }
 
@@ -153,17 +171,24 @@
                 const res = await fetch(GAS_URL);
                 const state = await res.json();
                 if (state && state[1]) {
-                    for (let i = 1; i <= 5; i++) {
-                        document.getElementById(`in-country-${i}`).value = state[i].country;
+                    // allowedTeam が指定されている場合は、そのチームのみを読み込む
+                    const teamsToLoad = allowedTeam ? [parseInt(allowedTeam)] : [1, 2, 3, 4, 5];
+                    
+                    for (let i of teamsToLoad) {
+                        const countryEl = document.getElementById(`in-country-${i}`);
+                        if (!countryEl) continue; // フォームが存在しない場合はスキップ
+                        
+                        countryEl.value = state[i]?.country || '';
                         infoFields.forEach(f => {
                             const el = document.getElementById(`in-${f.id}-${i}`);
-                            if (el) el.value = state[i][f.id] || '';
+                            if (el) el.value = state[i]?.[f.id] || '';
                         });
                         for(let r=1; r<=24; r++) {
                             const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
-                            clubEl.value = state[i].clubs[r] || "";
+                            if (!clubEl) continue;
+                            clubEl.value = state[i]?.clubs?.[r] || "";
                             // ロード時は saveAll を呼ばない
-                            updatePlayerOptions(r, i, state[i].players[r], true);
+                            updatePlayerOptions(r, i, state[i]?.players?.[r], true);
                         }
                     }
                 }
