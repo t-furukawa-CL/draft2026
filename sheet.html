@@ -180,7 +180,7 @@
                 renderTable(); // テーブル再描画
             } catch (e) { console.error("同期エラー", e); }
         }
-        setInterval(fetchLatestData, 1000);
+        // setInterval(fetchLatestData, 3000);
 
 
         async function syncWithServer() {
@@ -193,8 +193,8 @@
                 }
             } catch (e) { console.error("同期失敗", e); }
         }
-        setInterval(syncWithServer, 1000);
-        window.addEventListener('load', syncWithServer);
+        // setInterval(syncWithServer, 1000);
+        // window.addEventListener('load', syncWithServer);
 
         // リアルタイム同期設定
         window.addEventListener('storage', renderTable);
