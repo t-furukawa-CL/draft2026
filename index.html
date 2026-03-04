@@ -97,11 +97,11 @@
                     selectContainer.insertAdjacentHTML('beforeend', `
                         <div class="flex items-center gap-1">
                             <span class="text-[9px] w-4 text-gray-400">${r}</span>
-                            <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-14 border rounded p-0.5 text-[9px] bg-blue-50">
+                            <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
                                 <option value="">球団</option>
                                 ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
                             </select>
-                            <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-full border rounded p-0.5 text-[10px]">
+                            <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
                                 <option value="">---</option>
                             </select>
                         </div>`);
