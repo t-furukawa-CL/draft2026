@@ -253,12 +253,24 @@
                         delete state[allowedTeam];
                         localStorage.setItem('draftApp_full_save', JSON.stringify(state));
                     }
-                    location.reload();
+                    // GASにもリセット結果を送信
+                    const resetState = saved ? JSON.parse(saved) : {};
+                    delete resetState[allowedTeam];
+                    fetch(GAS_URL, {
+                        method: "POST",
+                        body: JSON.stringify(resetState),
+                        mode: "no-cors"
+                    }).then(() => location.reload());
                 }
             } else {
                 if (confirm("全データをリセットしますか？")) {
                     localStorage.clear();
-                    location.reload();
+                    // GASにも空のデータを送信
+                    fetch(GAS_URL, {
+                        method: "POST",
+                        body: JSON.stringify({}),
+                        mode: "no-cors"
+                    }).then(() => location.reload());
                 }
             }
         }
