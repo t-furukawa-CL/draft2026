@@ -21,6 +21,29 @@
     <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
 
     <script>
+        // 管理者パスワード認証
+        const ADMIN_PASSWORD = 'draft2026';
+        
+        function checkAdminAuth() {
+            // sessionStorage でアクティブなセッションをチェック
+            if (sessionStorage.getItem('adminAuth') !== 'verified') {
+                const password = prompt('このページは管理者のみアクセス可能です。\nパスワードを入力してください：');
+                if (password !== ADMIN_PASSWORD) {
+                    alert('パスワードが正しくありません');
+                    window.location.href = 'sheet.html'; // sheet.html にリダイレクト
+                    return false;
+                }
+                sessionStorage.setItem('adminAuth', 'verified');
+            }
+            return true;
+        }
+        
+        // ページロード時に認証確認
+        if (!checkAdminAuth()) {
+            // 認証失敗時はスクリプト実行を停止
+            throw new Error('Admin authentication required');
+        }
+        
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
         const owners = ['蛯澤', '小菅', '濱野', '古川', '安川'];
         const countries = [{ name: '日本', flag: '🇯🇵' }, { name: '台湾', flag: '🇹🇼' }, { name: '豪州', flag: '🇦🇺' }, { name: '韓国', flag: '🇰🇷' }, { name: 'チェコ', flag: '🇨🇿' }];
