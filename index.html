@@ -18,7 +18,7 @@
         </div>
     </div>
 
-    <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4"></div>
+    <div id="form-container" class="grid grid-cols-1 md:grid-cols-5 gap-4 w-full justify-items-center"></div>
 
     <script>
         const GAS_URL = "https://script.google.com/macros/s/AKfycbzPQR4A22pPOAwojXCCWWNnoWvucQghtyviPvidWkbTRST5VY2klAA9griSHU74oIoX/exec";
@@ -28,6 +28,13 @@
         // URLパラメータからアクセス許可チームを取得
         const params = new URLSearchParams(window.location.search);
         const allowedTeam = params.get('team');
+        // チーム指定があれば５列レイアウトを解除
+        if (allowedTeam) {
+            const container = document.getElementById('form-container');
+            if (container) {
+                container.classList.remove('md:grid-cols-5');
+            }
+        }
         
         const infoFields = [
             { id: 'teamName', label: 'チーム名' },
