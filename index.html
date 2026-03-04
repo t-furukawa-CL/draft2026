@@ -77,13 +77,13 @@
                 formContainer.insertAdjacentHTML('beforeend', `
                     <div class="bg-white p-3 rounded shadow border border-gray-200 text-xs w-full">
                         <h3 class="font-bold mb-2 text-blue-800 border-b italic">TEAM ${i}</h3>
-                        <div class="edit-panel space-y-1">
+                        <div class="edit-panel space-y-1 ${allowedTeam ? 'min-w-[500px]' : ''}">
                             <label class="block text-gray-400 font-bold">国</label>
                             <select id="in-country-${i}" onchange="saveAll()" class="w-full border rounded p-1">
                                 ${countries.map(c => `<option value="${c.flag}">${c.flag} ${c.name}</option>`).join('')}
                             </select>
                             ${fieldsHtml}
-                            <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                            <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded whitespace-nowrap min-w-[120px]">
                                 <span class="text-gray-500 font-bold">総年俸: </span>
                                 <span id="total-price-${i}" class="text-blue-700 font-bold text-sm">0</span> <span class="text-[8px]">万</span>
                             </div>
@@ -93,39 +93,56 @@
                     </div>`);
                 
                 const selectContainer = document.getElementById(`player-selects-${i}`);
-                // two-column layout: left for rounds 1-15, right for 16-24
-                selectContainer.innerHTML = `
-                    <div class="flex gap-2">
-                        <div class="flex flex-col" id="col1-${i}"></div>
-                        <div class="flex flex-col" id="col2-${i}"></div>
-                    </div>`;
-                const col1 = document.getElementById(`col1-${i}`);
-                const col2 = document.getElementById(`col2-${i}`);
-                for (let r = 1; r <= 15; r++) {
-                    col1.insertAdjacentHTML('beforeend', `
-                        <div class="flex items-center gap-1">
-                            <span class="text-[9px] w-4 text-gray-400">${r}</span>
-                            <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
-                                <option value="">球団</option>
-                                ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
-                            </select>
-                            <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
-                                <option value="">---</option>
-                            </select>
-                        </div>`);
-                }
-                for (let r = 16; r <= 24; r++) {
-                    col2.insertAdjacentHTML('beforeend', `
-                        <div class="flex items-center gap-1">
-                            <span class="text-[9px] w-4 text-gray-400">${r}</span>
-                            <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
-                                <option value="">球団</option>
-                                ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
-                            </select>
-                            <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
-                                <option value="">---</option>
-                            </select>
-                        </div>`);
+                if (allowedTeam) {
+                    // two-column layout: left for rounds 1-15, right for 16-24
+                    selectContainer.innerHTML = `
+                        <div class="flex gap-2">
+                            <div class="flex flex-col" id="col1-${i}"></div>
+                            <div class="flex flex-col" id="col2-${i}"></div>
+                        </div>`;
+                    const col1 = document.getElementById(`col1-${i}`);
+                    const col2 = document.getElementById(`col2-${i}`);
+                    for (let r = 1; r <= 15; r++) {
+                        col1.insertAdjacentHTML('beforeend', `
+                            <div class="flex items-center gap-1">
+                                <span class="text-[9px] w-4 text-gray-400">${r}</span>
+                                <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
+                                    <option value="">球団</option>
+                                    ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
+                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                    <option value="">---</option>
+                                </select>
+                            </div>`);
+                    }
+                    for (let r = 16; r <= 24; r++) {
+                        col2.insertAdjacentHTML('beforeend', `
+                            <div class="flex items-center gap-1">
+                                <span class="text-[9px] w-4 text-gray-400">${r}</span>
+                                <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
+                                    <option value="">球団</option>
+                                    ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
+                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                    <option value="">---</option>
+                                </select>
+                            </div>`);
+                    }
+                } else {
+                    // normal single column order when no specific team
+                    for (let r = 1; r <= 24; r++) {
+                        selectContainer.insertAdjacentHTML('beforeend', `
+                            <div class="flex items-center gap-1">
+                                <span class="text-[9px] w-4 text-gray-400">${r}</span>
+                                <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
+                                    <option value="">球団</option>
+                                    ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
+                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                    <option value="">---</option>
+                                </select>
+                            </div>`);
+                    }
                 }
             }
         }
