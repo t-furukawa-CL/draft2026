@@ -285,8 +285,8 @@
             renderTable();
             alert(`${playerName} の当選チームを TEAM ${winnerTeam} ${winnerRound}巡目に設定しました。`);
         }
-        // 3秒ごとにサーバと同期
-        setInterval(syncWithServer, 3000);
+        // 1秒ごとにサーバと同期（より頻繁に）
+        setInterval(syncWithServer, 1000);
         window.addEventListener('load', syncWithServer);
 
         // リアルタイム同期設定（storageイベントと初回描画のみ）

@@ -275,6 +275,34 @@
             }
         }
 
+        // 定期的にサーバから最新データを取得してローカル更新（他デバイスとの同期）
+        async function syncFromServer() {
+            try {
+                const res = await fetch(GAS_URL + '?t=' + Date.now(), {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                const state = await res.json();
+                if (state && Object.keys(state).length > 0) {
+                    const saved = localStorage.getItem('draftApp_full_save');
+                    const local = saved ? JSON.parse(saved) : {};
+                    // allowedTeam がある場合は該当チームのみ更新
+                    if (allowedTeam) {
+                        const remoteTeam = state[allowedTeam];
+                        if (remoteTeam) local[allowedTeam] = remoteTeam;
+                    } else {
+                        // 全チームを更新
+                        for (let i = 1; i <= 5; i++) {
+                            if (state[i]) local[i] = state[i];
+                        }
+                    }
+                    localStorage.setItem('draftApp_full_save', JSON.stringify(local));
+                }
+            } catch (e) { console.log("サーバ同期失敗"); }
+        }
+        // 5秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
+        setInterval(syncFromServer, 5000);
+
         initLayout();
         loadSavedData();
     </script>
