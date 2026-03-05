@@ -176,7 +176,7 @@
                 if (!countryEl) continue;
                 
                 let teamTotal = 0;
-                state[i] = { country: countryEl.value, players: {}, clubs: {} };
+                state[i] = { country: countryEl.value, players: {}, clubs: {}, lastUpdated: Date.now() };
                 infoFields.forEach(f => { 
                     const el = document.getElementById(`in-${f.id}-${i}`);
                     if (el) state[i][f.id] = el.value;
@@ -282,26 +282,76 @@
                     cache: 'no-store',
                     headers: { 'Cache-Control': 'no-cache' }
                 });
-                const state = await res.json();
-                if (state && Object.keys(state).length > 0) {
+                const remote = await res.json();
+                if (remote && Object.keys(remote).length > 0) {
                     const saved = localStorage.getItem('draftApp_full_save');
                     const local = saved ? JSON.parse(saved) : {};
-                    // allowedTeam がある場合は該当チームのみ更新
-                    if (allowedTeam) {
-                        const remoteTeam = state[allowedTeam];
-                        if (remoteTeam) local[allowedTeam] = remoteTeam;
-                    } else {
-                        // 全チームを更新
-                        for (let i = 1; i <= 5; i++) {
-                            if (state[i]) local[i] = state[i];
+                    
+                    // マージロジック：遠い過去のチームデータは更新、最近のはスキップ
+                    for (let i = 1; i <= 5; i++) {
+                        if (remote[i]) {
+                            const remoteTime = remote[i].lastUpdated || 0;
+                            const localTime = (local[i] && local[i].lastUpdated) || 0;
+                            // リモートがより新しいか、ローカルに存在しない場合は更新
+                            if (remoteTime > localTime || !local[i]) {
+                                local[i] = remote[i];
+                            }
                         }
                     }
+                    // メタデータ（_losers, _winnersなど）もマージ
+                    if (remote._losers) local._losers = remote._losers;
+                    if (remote._winners) local._winners = remote._winners;
+                    
                     localStorage.setItem('draftApp_full_save', JSON.stringify(local));
+                    // フォームを再読み込みして最新データを反映
+                    reloadFormFromStorage();
                 }
             } catch (e) { console.log("サーバ同期失敗"); }
         }
-        // 5秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
-        setInterval(syncFromServer, 5000);
+        
+        // ローカルストレージから画面を再描画
+        function reloadFormFromStorage() {
+            const saved = localStorage.getItem('draftApp_full_save');
+            if (!saved) return;
+            const state = JSON.parse(saved);
+            const teamsToLoad = allowedTeam ? [parseInt(allowedTeam)] : [1, 2, 3, 4, 5];
+            
+            for (let i of teamsToLoad) {
+                if (!state[i]) continue;
+                
+                const countryEl = document.getElementById(`in-country-${i}`);
+                if (countryEl) countryEl.value = state[i].country || '';
+                
+                infoFields.forEach(f => {
+                    const el = document.getElementById(`in-${f.id}-${i}`);
+                    if (el) el.value = state[i][f.id] || '';
+                });
+                
+                for (let r = 1; r <= 24; r++) {
+                    const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
+                    const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+                    if (!clubEl || !playerEl) continue;
+                    
+                    clubEl.value = state[i].clubs?.[r] || "";
+                    playerEl.value = state[i].players?.[r] || "";
+                }
+                
+                // 合計を再計算
+                let teamTotal = 0;
+                for (let r = 1; r <= 24; r++) {
+                    const val = state[i].players?.[r];
+                    if (val) {
+                        const price = parseInt(val.split('|')[1].replace(/,/g, ''));
+                        teamTotal += price;
+                    }
+                }
+                const totalPriceEl = document.getElementById(`total-price-${i}`);
+                if (totalPriceEl) totalPriceEl.innerText = teamTotal.toLocaleString();
+            }
+        }
+        
+        // 2秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
+        setInterval(syncFromServer, 2000);
 
         initLayout();
         loadSavedData();
