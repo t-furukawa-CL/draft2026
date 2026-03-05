@@ -279,40 +279,6 @@
             }
         }
 
-        // 定期的にサーバから最新データを取得してローカル更新（他デバイスとの同期）
-        async function syncFromServer() {
-            try {
-                const res = await fetch(GAS_URL + '?t=' + Date.now(), {
-                    cache: 'no-store',
-                    headers: { 'Cache-Control': 'no-cache' }
-                });
-                const remote = await res.json();
-                if (remote && Object.keys(remote).length > 0) {
-                    const saved = localStorage.getItem('draftApp_full_save');
-                    const local = saved ? JSON.parse(saved) : {};
-                    
-                    // マージロジック：遠い過去のチームデータは更新、最近のはスキップ
-                    for (let i = 1; i <= 5; i++) {
-                        if (remote[i]) {
-                            const remoteTime = remote[i].lastUpdated || 0;
-                            const localTime = (local[i] && local[i].lastUpdated) || 0;
-                            // リモートがより新しいか、ローカルに存在しない場合は更新
-                            if (remoteTime > localTime || !local[i]) {
-                                local[i] = remote[i];
-                            }
-                        }
-                    }
-                    // メタデータ（_losers, _winnersなど）もマージ
-                    if (remote._losers) local._losers = remote._losers;
-                    if (remote._winners) local._winners = remote._winners;
-                    
-                    localStorage.setItem('draftApp_full_save', JSON.stringify(local));
-                    // フォームを再読み込みして最新データを反映
-                    reloadFormFromStorage();
-                }
-            } catch (e) { console.log("サーバ同期失敗"); }
-        }
-        
         // ローカルストレージから画面を再描画
         function reloadFormFromStorage() {
             const saved = localStorage.getItem('draftApp_full_save');
