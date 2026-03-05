@@ -281,12 +281,12 @@
             }
             // 保存と同期
             localStorage.setItem('draftApp_full_save', JSON.stringify(state));
-            fetch(GAS_URL, { method: "POST", body: JSON.stringify(state), mode: "no-cors" });
+            fetch(GAS_URL, { method: "POST", body: JSON.stringify(state), mode: "cors" });
             renderTable();
             alert(`${playerName} の当選チームを TEAM ${winnerTeam} ${winnerRound}巡目に設定しました。`);
         }
         // 1秒ごとにサーバと同期（より頻繁に）
-        setInterval(syncWithServer, 1000);
+        setInterval(syncWithServer, 100000);
         window.addEventListener('load', syncWithServer);
 
         // リアルタイム同期設定（storageイベントと初回描画のみ）

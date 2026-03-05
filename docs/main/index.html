@@ -354,8 +354,8 @@
             }
         }
         
-        // 2秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
-        setInterval(syncFromServer, 2000);
+        // 10秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
+        setInterval(syncFromServer, 10000);
 
         initLayout();
         loadSavedData();
