@@ -242,20 +242,6 @@
             }
         }
 
-        // サーバ同期（単一）
-        async function syncWithServer() {
-            try {
-                const res = await fetch(GAS_URL + '?t=' + Date.now(), {
-                    cache: 'no-store',
-                    headers: { 'Cache-Control': 'no-cache' }
-                });
-                const state = await res.json();
-                if (state && Object.keys(state).length > 0) {
-                    localStorage.setItem('draftApp_full_save', JSON.stringify(state));
-                    renderTable();
-                }
-            } catch (e) { console.error("同期失敗", e); }
-        }
 
         // ユーザーが重複選手の当選チームを手動で決める
         function chooseWinner(playerName, winnerTeam, winnerRound) {
