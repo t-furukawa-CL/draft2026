@@ -113,8 +113,7 @@
                                 <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
                                     <option value="">---</option>
                                 </select>
-                            </div>
-                        `);
+                            </div>`);
                     }
                     for (let r = 16; r <= 24; r++) {
                         col2.insertAdjacentHTML('beforeend', `
@@ -127,9 +126,42 @@
                                 <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
                                     <option value="">---</option>
                                 </select>
-                            </div>
-                        `);
+                            </div>`);
                     }
+                } else {
+                    // normal single column order when no specific team
+                    for (let r = 1; r <= 24; r++) {
+                        selectContainer.insertAdjacentHTML('beforeend', `
+                            <div class="flex items-center gap-1">
+                                <span class="text-[9px] w-4 text-gray-400">${r}</span>
+                                <select id="in-round-${r}-team-${i}-club" onchange="updatePlayerOptions(${r}, ${i})" class="w-20 border rounded p-0.5 text-[9px] bg-blue-50">
+                                    <option value="">球団</option>
+                                    ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                </select>
+                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                    <option value="">---</option>
+                                </select>
+                            </div>`);
+                    }
+                }
+            }
+        }
+
+        // suppressSave: true にすると内部で saveAll を呼ばない（ロード時に使用）
+        function updatePlayerOptions(r, i, savedValue = null, suppressSave = false) {
+            const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
+            const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+            const selectedClub = clubEl.value;
+            let optionsHtml = '<option value="">---</option>';
+            if (selectedClub) {
+                const filtered = allPlayers.filter(p => p.c === selectedClub);
+                optionsHtml += filtered.map(p => `<option value="${p.n}|${p.p}">${p.n} (${p.p})</option>`).join('');
+            }
+            playerEl.innerHTML = optionsHtml;
+            if (savedValue) playerEl.value = savedValue;
+            if (!suppressSave) saveAll();
+        }
+
         async function saveAll() {
             // ローカルストレージから既存データを取得
             const saved = localStorage.getItem('draftApp_full_save');
