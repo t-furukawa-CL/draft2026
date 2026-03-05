@@ -208,7 +208,7 @@
                         team: i,
                         data: state[i]
                     }),
-                    mode: "no-cors"
+                    mode: "cors"
                 });
             }
 
@@ -263,7 +263,7 @@
                     fetch(GAS_URL, {
                         method: "POST",
                         body: JSON.stringify(resetState),
-                        mode: "no-cors"
+                        mode: "cors"
                     }).then(() => location.reload());
                 }
             } else {
@@ -273,7 +273,7 @@
                     fetch(GAS_URL, {
                         method: "POST",
                         body: JSON.stringify({}),
-                        mode: "no-cors"
+                        mode: "cors"
                     }).then(() => location.reload());
                 }
             }
