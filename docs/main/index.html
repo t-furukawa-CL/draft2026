@@ -110,12 +110,9 @@
                                     <option value="">球団</option>
                                     ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
                                 </select>
-                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                <select id="in-round-${r}-team-${i}" onchange="validateAndSave(${r}, ${i})" class="w-20 border rounded p-0.5 text-[10px]">
                                     <option value="">---</option>
                                 </select>
-                            </div>`);
-                    }
-                    for (let r = 16; r <= 24; r++) {
                         col2.insertAdjacentHTML('beforeend', `
                             <div class="flex items-center gap-1">
                                 <span class="text-[9px] w-4 text-gray-400">${r}</span>
@@ -123,14 +120,9 @@
                                     <option value="">球団</option>
                                     ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
                                 </select>
-                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                <select id="in-round-${r}-team-${i}" onchange="validateAndSave(${r}, ${i})" class="w-20 border rounded p-0.5 text-[10px]">
                                     <option value="">---</option>
                                 </select>
-                            </div>`);
-                    }
-                } else {
-                    // normal single column order when no specific team
-                    for (let r = 1; r <= 24; r++) {
                         selectContainer.insertAdjacentHTML('beforeend', `
                             <div class="flex items-center gap-1">
                                 <span class="text-[9px] w-4 text-gray-400">${r}</span>
@@ -138,13 +130,9 @@
                                     <option value="">球団</option>
                                     ${teamList.map(t => `<option value="${t}">${t}</option>`).join('')}
                                 </select>
-                                <select id="in-round-${r}-team-${i}" onchange="saveAll()" class="w-20 border rounded p-0.5 text-[10px]">
+                                <select id="in-round-${r}-team-${i}" onchange="validateAndSave(${r}, ${i})" class="w-20 border rounded p-0.5 text-[10px]">
                                     <option value="">---</option>
                                 </select>
-                            </div>`);
-                    }
-                }
-            }
         }
 
         // suppressSave: true にすると内部で saveAll を呼ばない（ロード時に使用）
@@ -154,12 +142,90 @@
             const selectedClub = clubEl.value;
             let optionsHtml = '<option value="">---</option>';
             if (selectedClub) {
-                const filtered = allPlayers.filter(p => p.c === selectedClub);
+                // 同一チーム（TEAM i）で既に選ばれている選手の球団をカウント
+                const selectedPlayersByClub = {};
+                for (let rr = 1; rr <= 24; rr++) {
+                    const pEl = document.getElementById(`in-round-${rr}-team-${i}`);
+                    if (pEl && pEl.value) {
+                        const playerData = pEl.value;
+                        const playerName = playerData.split('|')[0];
+                        const playerInfo = allPlayers.find(ap => ap.n === playerName);
+                        if (playerInfo) {
+                            const club = playerInfo.c;
+                            if (!selectedPlayersByClub[club]) selectedPlayersByClub[club] = [];
+                            selectedPlayersByClub[club].push(playerName);
+                        }
+                    }
+                }
+                
+                // 現在のラウンドで選ばれている場合はカウントから除外
+                const currentPlayerEl = document.getElementById(`in-round-${r}-team-${i}`);
+                if (currentPlayerEl && currentPlayerEl.value) {
+                    const currentPlayerData = currentPlayerEl.value;
+                    const currentPlayerName = currentPlayerData.split('|')[0];
+                    if (selectedPlayersByClub[selectedClub]) {
+                        const idx = selectedPlayersByClub[selectedClub].indexOf(currentPlayerName);
+                        if (idx !== -1) {
+                            selectedPlayersByClub[selectedClub].splice(idx, 1);
+                        }
+                    }
+                }
+                
+                const currentCount = selectedPlayersByClub[selectedClub]?.length || 0;
+                const filtered = allPlayers.filter(p => {
+                    if (p.c !== selectedClub) return false;
+                    // 同じ球団から既に2人選ばれている場合は除外
+                    if (currentCount >= 2 && !selectedPlayersByClub[selectedClub]?.includes(p.n)) {
+                        return false;
+                    }
+                    return true;
+                });
                 optionsHtml += filtered.map(p => `<option value="${p.n}|${p.p}">${p.n} (${p.p})</option>`).join('');
             }
             playerEl.innerHTML = optionsHtml;
             if (savedValue) playerEl.value = savedValue;
             if (!suppressSave) saveAll();
+        }
+
+        // 選手選択時の検証：同一球嚣から最大3人以上を選択していないか確認
+        function validateAndSave(r, i) {
+            const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+            if (!playerEl.value) {
+                saveAll();
+                return;
+            }
+            
+            const playerData = playerEl.value;
+            const playerName = playerData.split('|')[0];
+            const playerInfo = allPlayers.find(ap => ap.n === playerName);
+            if (!playerInfo) {
+                saveAll();
+                return;
+            }
+            
+            // 同一チーム内で同一球嚣から選ばれている選手数をカウント
+            let clubCount = 0;
+            for (let rr = 1; rr <= 24; rr++) {
+                const pEl = document.getElementById(`in-round-${rr}-team-${i}`);
+                if (pEl && pEl.value && rr !== r) {
+                    const pData = pEl.value;
+                    const pName = pData.split('|')[0];
+                    const pInfo = allPlayers.find(ap => ap.n === pName);
+                    if (pInfo && pInfo.c === playerInfo.c) {
+                        clubCount++;
+                    }
+                }
+            }
+            
+            // 同一球嚣からすでに2人選ばれていれば警告
+            if (clubCount >= 2) {
+                alert(`${playerInfo.c}からすでに2人選ばれています。\n同一球嚣からは最大2人までです。`);
+                playerEl.value = '';
+                saveAll();
+                return;
+            }
+            
+            saveAll();
         }
 
         async function saveAll() {
