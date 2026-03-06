@@ -10,9 +10,19 @@
     </style>
 </head>
 <body class="p-4 bg-gray-100 font-sans">
+
     <div class="flex justify-between items-center mb-4 border-b pb-2">
         <h1 class="text-xl font-bold text-gray-700" id="page-title">ドラフト入力パネル</h1>
-        <div class="space-x-2">
+        <div class="space-x-2 flex items-center">
+            <label class="flex items-center gap-1 text-[10px] bg-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-300">
+                <input type="checkbox" id="mask-high-salary" onchange="reloadAllSelects()" class="w-3 h-3">
+                <span class="text-gray-600">1億越え選手を非表示にする</span>
+            </label>
+            <label class="flex items-center gap-1 text-[10px] bg-gray-200 px-2 py-1 rounded cursor-pointer hover:bg-gray-300">
+                <input type="checkbox" id="sort-salary" onchange="reloadAllSelects()" class="w-3 h-3">
+                <span class="text-gray-600">年俸順にソートする</span>
+            </label>
+            
             <a href="sheet.html" target="_blank" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">結果一覧</a>
             <button onclick="clearTeamData()" id="reset-btn" class="bg-red-100 text-red-600 px-3 py-1 rounded text-sm hover:bg-red-200">全リセット</button>
         </div>
@@ -147,16 +157,42 @@
             }
         }
 
-        // suppressSave: true にすると内部で saveAll を呼ばない（ロード時に使用）
+        const SALARY_LIMIT = 10000;
         function updatePlayerOptions(r, i, savedValue = null, suppressSave = false) {
             const clubEl = document.getElementById(`in-round-${r}-team-${i}-club`);
             const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
             const selectedClub = clubEl.value;
+            
+            // 各設定の状態を取得
+            const isLimitEnabled = document.getElementById('mask-high-salary')?.checked;
+            const isSortEnabled = document.getElementById('sort-salary')?.checked;
+
             let optionsHtml = '<option value="">---</option>';
+            
             if (selectedClub) {
-                const filtered = allPlayers.filter(p => p.c === selectedClub);
+                // 1. まずは球団で絞り込み
+                let filtered = allPlayers.filter(p => p.c === selectedClub);
+
+                // 2. 「1万以上制限」がONならフィルター
+                if (isLimitEnabled) {
+                    filtered = filtered.filter(p => {
+                        const price = parseInt(p.p.replace(/,/g, ''));
+                        return price < 10000;
+                    });
+                }
+
+                // 3. ★追加：「年俸順」がONならソート（降順：高い順）
+                if (isSortEnabled) {
+                    filtered.sort((a, b) => {
+                        const priceA = parseInt(a.p.replace(/,/g, ''));
+                        const priceB = parseInt(b.p.replace(/,/g, ''));
+                        return priceB - priceA; // 低い順にしたい場合は priceA - priceB
+                    });
+                }
+
                 optionsHtml += filtered.map(p => `<option value="${p.n}|${p.p}">${p.n} (${p.p})</option>`).join('');
             }
+            
             playerEl.innerHTML = optionsHtml;
             if (savedValue) playerEl.value = savedValue;
             if (!suppressSave) saveAll();
@@ -352,6 +388,23 @@
                 const totalPriceEl = document.getElementById(`total-price-${i}`);
                 if (totalPriceEl) totalPriceEl.innerText = teamTotal.toLocaleString();
             }
+        }
+
+        function reloadAllSelects() {
+            // allowedTeamがある場合はそのチームだけ、ない場合は1〜5を対象にする
+            const teamsToUpdate = allowedTeam ? [parseInt(allowedTeam)] : [1, 2, 3, 4, 5];
+            
+            teamsToUpdate.forEach(i => {
+                for (let r = 1; r <= 24; r++) {
+                    const playerEl = document.getElementById(`in-round-${r}-team-${i}`);
+                    // 要素が存在する場合のみ実行（ここが重要）
+                    if (playerEl) {
+                        const savedValue = playerEl.value;
+                        updatePlayerOptions(r, i, savedValue, true);
+                    }
+                }
+            });
+            saveAll();
         }
         
         // 10秒ごとにサーバからデータを同期（他デバイスの変更を受け取る）
